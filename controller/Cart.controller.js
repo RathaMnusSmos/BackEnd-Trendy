@@ -29,12 +29,12 @@ const db = require('../config/database/db.config')
 // };
 
 const addToCart = (req, res) => {
-    const { user_id, product_item_id, quantity } = req.body;
+    const {product_item_id, quantity } = req.body;
 
     // Assuming you have an authenticated user through middleware
-    const authenticatedUserId = req.user.user_id; // Get the authenticated user's ID from the middleware
+    const user_id = req.user.user_id; // Get the authenticated user's ID from the middleware
     // Check if the authenticated user matches the user in the request
-    if (authenticatedUserId === user_id) {
+    if (user_id) {
         // Validate that the product item exists
         const productItemQuery = 'SELECT id, amount, pending FROM product_items WHERE id = ?';
         db.query(productItemQuery, [product_item_id], (err, productItemResult) => {
