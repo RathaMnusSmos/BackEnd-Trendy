@@ -8,19 +8,13 @@ const { main } = require('./controller/machineLearning/DataPreparation')
 
 const app = express();
 app.use(express.json()); //add allow body parames
-const publicDirectory = path.join(__dirname, './public');
-app.use(express.static(publicDirectory));
-app.set('view engine', 'hbs');
+
 
 app.use(cors({
     origin: "*"
 }))
 
 
-app.get('/', (req, res) => {
-    // res.send("<h1>Welcome Home</h1>");
-    res.render('view')
-});
 
 
 
