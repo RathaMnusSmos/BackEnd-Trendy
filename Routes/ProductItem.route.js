@@ -1,6 +1,7 @@
 const productVariantsController = require('../controller/ProductItem.controller');
 const { userGuard, adminGuard } = require('../middleware/auth.middleware')
 const { query, validationResult } = require('express-validator');
+const { main } = require('../controller/machineLearning/Apriori.Controller')
 
 const productVariant = (app) => {
     // Create a product variant
@@ -25,6 +26,18 @@ const productVariant = (app) => {
 
     // Delete a product variant
     app.delete('/api/product-variant/:id', userGuard, adminGuard, productVariantsController.deleteProductVariant);
+    // New endpoint to get product recommendations
+    app.get('/api/recommendations/:productId', async (req, res) => {
+        const { productId } = req.params;
+        try {
+            const recommendations = await main(productId);
+            res.json(recommendations);
+        } catch (error) {
+            console.error('Error getting recommendations:', error);
+            res.status(500).json({ error: 'An error occurred while fetching recommendations.' });
+        }
+    });
+
 }
 
 

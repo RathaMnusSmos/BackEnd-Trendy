@@ -26,20 +26,76 @@ async function getCartByUserId(userId) {
 // Function to place an order
 
 // Function to place an order
+// const placeOrder = async (req, res) => {
+//   try {
+//     const userId = req.user.user_id; // Get the authenticated user's ID
+//     const { shippingAddress } = req.body; // Extract shipping address from the request body
+//     const { cart } = await getCartByUserId(userId); // Retrieve the user's cart
+
+//     // Check if the cart is empty
+//     if (!cart || cart.length === 0) {
+//       return res.status(400).json({ error: 'Your cart is empty. Add items to your cart before placing an order.' });
+//     }
+//     // Calculate the total order amount based on cart items
+//     const totalAmount = calculateTotalAmount(cart);
+
+//     const orderInsertQuery = 'INSERT INTO orders (user_id, total_amount, payment_status, shipping_address) VALUES (?, ?, ?, ?)';
+//     const orderInsertParams = [userId, totalAmount, 'Pending', shippingAddress];
+
+//     db.query(orderInsertQuery, orderInsertParams, async (error, orderResult) => {
+//       if (error) {
+//         console.error('Error creating order:', error);
+//         return res.status(500).json({ error: 'Error creating order' });
+//       }
+
+//       const orderId = orderResult.insertId;
+
+//       try {
+//         // Insert order history items using Promise.all to ensure all insertions are complete before responding
+//         await Promise.all(cart.map(async (item) => {
+//           const orderHistoryInsertQuery = 'INSERT INTO order_history (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)';
+//           const orderHistoryInsertParams = [orderId, item.product_id, item.quantity, item.product_price];
+//           await db.query(orderHistoryInsertQuery, orderHistoryInsertParams);
+//         }));
+
+//         // Clear the user's cart after placing the order
+//         await clearUserCart(userId);
+
+//         // If all order history items are successfully inserted and cart is cleared, send the response
+//         res.status(201).json({
+//           message: 'Your order has been placed successfully.',
+//           orderDetails: {
+//             orderId,
+//             totalAmount,
+//             shippingAddress,
+//             items: cart,
+//           },
+//         });
+//       } catch (historyError) {
+//         console.error('Error creating order history:', historyError);
+//         return res.status(500).json({ error: 'Error creating order history' });
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error placing order:', error);
+//     res.status(500).json({ error: 'An error occurred while placing the order.' });
+//   }
+// };
+
 const placeOrder = async (req, res) => {
   try {
-    const userId = req.user.user_id; // Get the authenticated user's ID
-    const { shippingAddress } = req.body; // Extract shipping address from the request body
-    const { cart } = await getCartByUserId(userId); // Retrieve the user's cart
+    const userId = req.user.user_id;
+    const { shippingAddress } = req.body;
+    const { cart } = await getCartByUserId(userId);
 
-    // Check if the cart is empty
     if (!cart || cart.length === 0) {
       return res.status(400).json({ error: 'Your cart is empty. Add items to your cart before placing an order.' });
     }
-    // Calculate the total order amount based on cart items
+
     const totalAmount = calculateTotalAmount(cart);
 
-    const orderInsertQuery = 'INSERT INTO orders (user_id, total_amount, payment_status, shipping_address) VALUES (?, ?, ?, ?)';
+    // Insert order into pending_orders table
+    const orderInsertQuery = 'INSERT INTO pending_orders (user_id, total_amount, payment_status, shipping_address) VALUES (?, ?, ?, ?)';
     const orderInsertParams = [userId, totalAmount, 'Pending', shippingAddress];
 
     db.query(orderInsertQuery, orderInsertParams, async (error, orderResult) => {
@@ -51,19 +107,17 @@ const placeOrder = async (req, res) => {
       const orderId = orderResult.insertId;
 
       try {
-        // Insert order history items using Promise.all to ensure all insertions are complete before responding
+        // Insert order items into pending_order_items table
         await Promise.all(cart.map(async (item) => {
-          const orderHistoryInsertQuery = 'INSERT INTO order_history (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)';
-          const orderHistoryInsertParams = [orderId, item.product_id, item.quantity, item.product_price];
-          await db.query(orderHistoryInsertQuery, orderHistoryInsertParams);
+          const orderItemsInsertQuery = 'INSERT INTO pending_order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)';
+          const orderItemsInsertParams = [orderId, item.product_id, item.quantity, item.product_price];
+          await db.query(orderItemsInsertQuery, orderItemsInsertParams);
         }));
 
-        // Clear the user's cart after placing the order
         await clearUserCart(userId);
 
-        // If all order history items are successfully inserted and cart is cleared, send the response
         res.status(201).json({
-          message: 'Your order has been placed successfully.',
+          message: 'Your order has been placed successfully. Admin will prepare your items soon.',
           orderDetails: {
             orderId,
             totalAmount,
@@ -204,6 +258,106 @@ async function getAllOrdersForAdmin(req, res) {
   }
 }
 
+// async function getAllOrdersForML(req, res) {
+//   try {
+//     // Fetch all orders from the database
+//     const allOrders = await fetchAllOrders();
+
+//     // Return the orders with associated items in the desired format
+//     const ordersWithItems = await Promise.all(allOrders.map(async (order) => {
+//       const userId = order.user_id;
+//       const user = await getUserInfo(userId);
+//       const items = await getOrderItems(order.order_id); // Fetch items associated with the order
+//       order.items = items; // Include items directly within the order object
+//       return {
+//         user,
+//         order,
+//       };
+//     }));
+
+//     res.json(ordersWithItems);
+//   } catch (error) {
+//     console.error('Error fetching all orders for ML:', error);
+//     res.status(500).json({ error: 'An error occurred while fetching all orders for ML.' });
+//   }
+// }
+
+
+async function getAllOrdersForML(productId) {
+  try {
+    // Fetch orders containing the specified product from the database
+    const ordersWithProduct = await fetchOrdersWithProduct(productId);
+
+    // Return the orders with associated items in the desired format
+    const ordersWithItems = await Promise.all(ordersWithProduct.map(async (order) => {
+      const userId = order.user_id;
+      const user = await getUserInfo(userId);
+      const items = await getOrderItems(order.order_id); // Fetch items associated with the order
+      order.items = items; // Include items directly within the order object
+      return {
+        user,
+        order,
+      };
+    }));
+
+    return ordersWithItems;
+  } catch (error) {
+    console.error('Error fetching orders for ML:', error);
+    throw error;
+  }
+}
+
+// Helper function to fetch orders containing the specified product ID
+async function fetchOrdersWithProduct(productId) {
+  return new Promise((resolve, reject) => {
+    const query = `
+      SELECT orders.order_id, orders.user_id
+      FROM orders
+      JOIN order_history ON orders.order_id = order_history.order_id
+      WHERE order_history.product_id = ?;
+    `;
+
+    db.query(query, [productId], (error, results) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(results);
+      }
+    });
+  });
+}
+
+
+
+
+async function getAllOrdersForML() {
+  try {
+    // Fetch all orders from the database
+    const allOrders = await fetchAllOrders();
+
+    // Return the orders with associated items in the desired format
+    const ordersWithItems = await Promise.all(allOrders.map(async (order) => {
+      const userId = order.user_id;
+      const user = await getUserInfo(userId);
+      const items = await getOrderItems(order.order_id); // Fetch items associated with the order
+      order.items = items; // Include items directly within the order object
+      return {
+        user,
+        order,
+      };
+    }));
+
+    return ordersWithItems;
+  } catch (error) {
+    console.error('Error fetching all orders for ML:', error);
+    throw new Error('An error occurred while fetching all orders for ML.');
+  }
+}
+
+
+
+
+
 // Helper function to fetch items associated with an order from the database
 async function getOrderItems(orderId) {
   return new Promise((resolve, reject) => {
@@ -263,4 +417,4 @@ async function getUserInfo(userId) {
 
 
 
-module.exports = { checkOutCart, placeOrder, getOrderHistoryByUserId, getAllOrdersForAdmin };
+module.exports = { checkOutCart, placeOrder, getOrderHistoryByUserId, getAllOrdersForAdmin, getAllOrdersForML };
