@@ -26,6 +26,8 @@ require('./Routes/ProductItem.route')(app)
 require('./Routes/Image.route')(app)
 require('./Routes/Cart.route')(app)
 require('./Routes/Order.route')(app)
+require('./Routes/Address.route')(app)
+
 
 // main()
 //     .then(() => {
