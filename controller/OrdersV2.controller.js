@@ -440,12 +440,12 @@ const getOrderDetails = (req, res) => {
             console.error('Error fetching order details:', err);
             return res.status(500).json({ error: 'Error fetching order details' });
         }
-
+        console.log(orderResults)
         // If the order details are found
         if (orderResults.length > 0) {
             const userId = orderResults[0].user_id;
             const addressId = orderResults[0].address_id;
-            const onDate = orderResults[0].created_at;
+            const onDate = orderResults[0].order_at;
             const delivery_method = orderResults[0].delivery
 
             const totalAmount = orderResults[0].total_amount;
@@ -763,7 +763,7 @@ const confirmOrder = (req, res) => {
                     // Insert into order history
                     const completeOrderQuery = `
                         INSERT INTO Order_History (order_id, user_id, total_amount, order_date, shipping_address_id)
-                        SELECT order_id, user_id, total_amount_after_discount, created_at, address_id
+                        SELECT order_id, user_id, total_amount_after_discount, order_at, address_id
                         FROM Orders
                         WHERE order_id = ?;
                     `;
@@ -844,7 +844,7 @@ const getUserOrderPending = (req, res) => {
 
                     const userId = orderResults[0].user_id;
                     const addressId = orderResults[0].address_id;
-                    const onDate = orderResults[0].created_at;
+                    const onDate = orderResults[0].order_at;
                     const delivery_method = orderResults[0].delivery;
                     const totalAmount = orderResults[0].total_amount;
                     const totalAmountAfterDiscount = orderResults[0].total_amount_after_discount;
@@ -986,7 +986,7 @@ const getOrderHistoryByUserAuth = (req, res) => {
 
                 const userId = orderResults[0].user_id;
                 const addressId = orderResults[0].address_id;
-                const onDate = orderResults[0].created_at;
+                const onDate = orderResults[0].order_at;
                 const delivery_method = orderResults[0].delivery;
                 const totalAmount = orderResults[0].total_amount;
                 const totalAmountAfterDiscount = orderResults[0].total_amount_after_discount;
@@ -1109,6 +1109,8 @@ const getUserOrders = (req, res) => {
                 return res.status(500).json({ error: 'Error fetching data' });
             }
 
+            // orderDate = result.created_at
+            // console.log(result)
             const orderDetailsPromises = result.map(order => new Promise((resolve, reject) => {
                 db.query(orderQuery, [order.order_id], (err, orderResults) => {
                     if (err) {
@@ -1121,9 +1123,11 @@ const getUserOrders = (req, res) => {
                         return reject('Order not found');
                     }
 
+                   
+
                     const userId = orderResults[0].user_id;
                     const addressId = orderResults[0].address_id;
-                    const onDate = orderResults[0].created_at;
+                    const onDate = order.order_at;
                     const delivery_method = orderResults[0].delivery;
                     const totalAmount = orderResults[0].total_amount;
                     const totalAmountAfterDiscount = orderResults[0].total_amount_after_discount;
