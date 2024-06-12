@@ -29,6 +29,7 @@ app.use((req, res, next) => {
 });
 
 
+
 require('./Routes/User.route')(app)
 require('./Routes/Product.route')(app)
 require('./Routes/Category.route')(app)
@@ -38,6 +39,12 @@ require('./Routes/Cart.route')(app)
 require('./Routes/Order.route')(app)
 require('./Routes/Address.route')(app)
 
+
+app.get('/', (req, res) => {
+    res.json({
+        message: "running......"
+    })
+})
 
 // main()
 //     .then(() => {
